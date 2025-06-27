@@ -41,7 +41,7 @@ def recommend(movie):
     return recommended_movies
 
 # Streamlit UI
-st.title("🎬 Movie Recommendation System (OMDb Version)")
+st.title("🎬 Movie Recommendation System")
 
 selected_movie = st.text_input("Enter a movie title")
 
