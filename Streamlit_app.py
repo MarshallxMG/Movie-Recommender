@@ -1,59 +1,51 @@
 import streamlit as st
 import pickle
 import requests
+from sklearn.metrics.pairwise import cosine_similarity
 
-# Load data
-with open("movies.pkl", "rb") as f:
-    movies = pickle.load(f)
+# Load movie data
+movies = pickle.load(open("movies.pkl", "rb"))
+similarity = pickle.load(open("similarity.pkl", "rb"))
 
-with open("similarity.pkl", "rb") as f:
-    similarity = pickle.load(f)
+# Get OMDb API key from Streamlit secrets
+OMDB_API_KEY = st.secrets["c42495a7"]
 
-# Your OMDb API Key
-OMDB_API_KEY = "c42495a7"  # Replace with your actual OMDb key
-
-# Function to fetch poster
 def fetch_poster(title):
     url = f"http://www.omdbapi.com/?t={title}&apikey={OMDB_API_KEY}"
-    resp = requests.get(url)
-    try:
-        data = resp.json()
-        return data.get("Poster", "")
-    except:
-        return ""
+    response = requests.get(url)
+    data = response.json()
+    if data.get("Response") == "True":
+        return data.get("Poster")
+    else:
+        return "https://via.placeholder.com/150?text=No+Image"
 
-# Recommend function
-def recommend(movie):
-    movie = movie.lower()
+def recommend(movie_title):
     movie_index = None
-
-    for idx, m in enumerate(movies):
-        if m["title"].lower() == movie:
+    for idx, title in enumerate(movies['title']):
+        if title.lower() == movie_title.lower():
             movie_index = idx
             break
-
     if movie_index is None:
         return []
 
-    distances = similarity[movie_index]
-    movie_list = sorted(list(enumerate(distances)), reverse=True, key=lambda x: x[1])[1:6]
-    recommended_movies = [movies[i[0]]["title"] for i in movie_list]
+    distances = list(enumerate(similarity[movie_index]))
+    recommended = sorted(distances, key=lambda x: x[1], reverse=True)[1:6]
+    recommended_movies = [movies['title'][i] for i, _ in recommended]
     return recommended_movies
 
 # Streamlit UI
+st.set_page_config(page_title="Movie Recommender", layout="wide")
 st.title("🎬 Movie Recommendation System")
 
-selected_movie = st.text_input("Enter a movie title")
+selected_movie = st.selectbox("Enter a movie title", movies['title'].values)
 
-if selected_movie:
-    results = recommend(selected_movie)
-    if results:
-        st.subheader("Recommended Movies:")
-
-        cols = st.columns(len(results))
-        for i, r in enumerate(results):
+if st.button("Recommend"):
+    recommendations = recommend(selected_movie)
+    if recommendations:
+        cols = st.columns(len(recommendations))
+        for i, movie in enumerate(recommendations):
             with cols[i]:
-                st.image(fetch_poster(r), width=150)
-                st.markdown(f"**{r}**")
+                st.text(movie)
+                st.image(fetch_poster(movie), width=150)
     else:
-        st.error("Movie not found. Please try another title.")
+        st.error("Sorry, no recommendations found.")
